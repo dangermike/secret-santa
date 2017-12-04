@@ -1,0 +1,161 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math/rand"
+	"net/mail"
+	"net/smtp"
+	"os"
+	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"gopkg.in/jpoehls/gophermail.v0"
+	"gopkg.in/urfave/cli.v1"
+)
+
+func main() {
+	app := cli.NewApp()
+	app.Version = appVersion
+	app.Usage = "Secret Santa Emailer!"
+	app.Flags = appFlags
+	app.Before = appBefore
+	app.Action = appMain
+	app.Run(os.Args)
+}
+
+func appBefore(c *cli.Context) error {
+	if !c.Bool("dry-run") {
+		if !c.IsSet("from-address") {
+			return errors.New("Parameter 'from-address' required except in dry run")
+		}
+	}
+	return nil
+}
+
+func appMain(c *cli.Context) error {
+	people, err := loadPeople(c.String("source-file"))
+	if err != nil {
+		log.WithError(err).Fatal("Decode error")
+		return err
+	}
+
+	source := rand.NewSource(time.Now().UnixNano())
+
+	// copy the people into a "from" slice and a "to" slice
+	froms := make([]mail.Address, len(people))
+	tos := make([]mail.Address, len(people))
+	copy(froms, people)
+	copy(tos, people)
+
+	// This will always happen at least once
+	for !validateShuffle(froms, tos) {
+		log.Info("Shuffling...")
+		shuffle(&froms, source)
+		shuffle(&tos, source)
+	}
+
+	if c.Bool("dry-run") {
+		return sendDryRun(c, froms, tos)
+	}
+
+	return sendReal(c, froms, tos)
+}
+
+func sendDryRun(c *cli.Context, froms []mail.Address, tos []mail.Address) error {
+	for i := 0; i < len(froms); i++ {
+		fields := log.Fields{"from": froms[i].Name, "to": tos[i].Name}
+		log.WithFields(fields).Info("match")
+	}
+	return nil
+}
+
+func sendReal(c *cli.Context, froms []mail.Address, tos []mail.Address) error {
+	auth := smtp.PlainAuth(
+		"",
+		c.String("from-address"),
+		c.String("from-password"),
+		c.String("smtp-host"),
+	)
+	from := mail.Address{Name: c.String("from-name"), Address: c.String("from-address")}
+
+	for i := 0; i < len(froms); i++ {
+		err := gophermail.SendMail(
+			fmt.Sprintf("%s:%d", c.String("smtp-host"), c.Int("smtp-port")),
+			auth,
+			formatMessage(from, froms[i], tos[i]),
+		)
+		if err != nil {
+			log.WithError(err).Fatal("ERROR: attempting to send a mail ")
+			return err
+		}
+		fields := log.Fields{}
+		if c.Bool("show-matches") {
+			fields = log.Fields{"from": froms[i].Name, "to": tos[i].Name}
+		}
+		log.WithFields(fields).Info("sent")
+	}
+	return nil
+}
+
+func formatMessage(from mail.Address, giver mail.Address, receiver mail.Address) *gophermail.Message {
+	// in a future version I'll break this out into a file and use text.template
+	const template = "%s,\n\n" +
+		"You have been chosen by the Secret Santa Robotic Elf to give to:\n\n" +
+		"%s\n\n" +
+		"Please don't spoil the fun -- guard this secret with your life! All " +
+		"will be revealed at the Just-Missed-Christmas Party on December 27th at " +
+		"Bill and Suzie's house, so you've only got to keep it together for a " +
+		"few weeks. All of us at the North Pole are pulling for you, so go get " +
+		"the best gift you can find for under $20. And remember: If it can't be " +
+		"good, at least it can be funny!\n\n" +
+		"Love, luck, and light fluffy snow,\n" +
+		"  - Santa's Robotic Little Helpers\n\n" +
+		"P.S. You can see and verify the code for the Secret Santa Robotic Elf at " +
+		"https://github.com/dangermike/secret-santa\n"
+
+	body := fmt.Sprintf(template, giver.Name, receiver.Name)
+
+	msg := gophermail.Message{
+		From:    from,
+		To:      []mail.Address{giver},
+		Subject: "Shhhh! It's your Secret Santa assignment",
+		Body:    body,
+	}
+
+	return &msg
+}
+
+func validateShuffle(froms []mail.Address, tos []mail.Address) bool {
+	if len(froms) != len(tos) {
+		return false
+	}
+	for i := 0; i < len(froms); i++ {
+		if froms[i].Name == tos[i].Name {
+			return false
+		}
+	}
+	return true
+}
+
+func loadPeople(filename string) ([]mail.Address, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var people []mail.Address
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&people)
+	return people, err
+}
+
+func shuffle(array *[]mail.Address, source rand.Source) {
+	random := rand.New(source)
+	for i := len(*array) - 1; i > 0; i-- {
+		j := random.Intn(i + 1)
+		(*array)[i], (*array)[j] = (*array)[j], (*array)[i]
+	}
+}
