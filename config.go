@@ -35,6 +35,16 @@ var appFlags = []cli.Flag{
 		Usage: "JSON file containing an array of name/address objects",
 		Value: "data/people.json",
 	},
+	cli.StringFlag{
+		Name:  "template-file",
+		Usage: "Text file containing a template used for the email body",
+		Value: "data/email.template",
+	},
+	cli.StringFlag{
+		Name:  "subject",
+		Usage: "Email subject",
+		Value: "Shhhh! It's your Secret Santa assignment",
+	},
 	cli.BoolFlag{
 		Name:  "show-matches",
 		Usage: "Print the pairings out when sending",

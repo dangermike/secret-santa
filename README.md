@@ -35,22 +35,26 @@ your platform
 participant shold be a member in an array with `name` and `address` parameters.
 This defaults to `data/people.json`, but you can use any path you like with the
  `--source-file` parameter. Please see the [example](data/example.json) for
- details.
+ details. 
+
+ You must also customize your email body by creating a template file. The file supports `{{.From}}` and `{{.To}}` which are the names pulled from the participants JSON File. This defaults to `data/email.template`, but you can use any path you like with the
+ `--template-file` parameter. Please see the [example](data/example.template) for
+ details. 
 
 
 ## Usage
 ```
 NAME:
-   secret-santa - Secret Santa Emailer!
+   config - Secret Santa Emailer!
 
 USAGE:
-   secret-santa [global options] command [command options] [arguments...]
+   config [global options] command [command options] [arguments...]
 
 VERSION:
    0.0.1
 
 COMMANDS:
-     help, h  Shows a list of commands or help for one command
+   help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --from-name value      Display name for sender (default: "Secret Santa Robotic Elf")
@@ -59,10 +63,13 @@ GLOBAL OPTIONS:
    --smtp-host value      Host to send to (default: "smtp.gmail.com")
    --smtp-port value      Port to send to (default: 587)
    --source-file value    JSON file containing an array of name/address objects (default: "data/people.json")
+   --template-file value  Text file containing a template used for the email body (default: "data/email.template")
+   --subject value        Email subject (default: "Shhhh! It's your Secret Santa assignment")
    --show-matches         Print the pairings out when sending
-   --dry-run              Do not send. Likely combined with --show-matches
+   --dry-run              Do not send. Implies --show-matches
    --help, -h             show help
    --version, -v          print the version
+
 ```
 
 ## Examples:
