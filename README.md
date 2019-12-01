@@ -48,7 +48,7 @@ NAME:
    secret-santa - Secret Santa Emailer!
 
 USAGE:
-   ssecret-santa [global options] command [command options] [arguments...]
+   secret-santa [global options] command [command options] [arguments...]
 
 VERSION:
    0.0.1
