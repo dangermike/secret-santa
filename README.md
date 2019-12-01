@@ -45,10 +45,10 @@ This defaults to `data/people.json`, but you can use any path you like with the
 ## Usage
 ```
 NAME:
-   config - Secret Santa Emailer!
+   secret-santa - Secret Santa Emailer!
 
 USAGE:
-   config [global options] command [command options] [arguments...]
+   ssecret-santa [global options] command [command options] [arguments...]
 
 VERSION:
    0.0.1
