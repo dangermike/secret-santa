@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"net/mail"
 	"net/smtp"
 	"os"
+	"path/filepath"
+	"text/template"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -72,6 +75,12 @@ func sendDryRun(c *cli.Context, froms []mail.Address, tos []mail.Address) error 
 }
 
 func sendReal(c *cli.Context, froms []mail.Address, tos []mail.Address) error {
+	body, err := template.New(filepath.Base(c.String("template-file"))).ParseFiles(c.String("template-file"))
+	if err != nil {
+		log.WithError(err).Fatal("Decode error")
+		return err
+	}
+
 	auth := smtp.PlainAuth(
 		"",
 		c.String("from-address"),
@@ -81,10 +90,16 @@ func sendReal(c *cli.Context, froms []mail.Address, tos []mail.Address) error {
 	from := mail.Address{Name: c.String("from-name"), Address: c.String("from-address")}
 
 	for i := 0; i < len(froms); i++ {
-		err := gophermail.SendMail(
+		msg, err := formatMessage(c, body, from, froms[i], tos[i])
+		if err != nil {
+			log.WithError(err).Fatal("ERROR: attempting to format mail ")
+			return err
+		}
+
+		err = gophermail.SendMail(
 			fmt.Sprintf("%s:%d", c.String("smtp-host"), c.Int("smtp-port")),
 			auth,
-			formatMessage(from, froms[i], tos[i]),
+			msg,
 		)
 		if err != nil {
 			log.WithError(err).Fatal("ERROR: attempting to send a mail ")
@@ -99,32 +114,28 @@ func sendReal(c *cli.Context, froms []mail.Address, tos []mail.Address) error {
 	return nil
 }
 
-func formatMessage(from mail.Address, giver mail.Address, receiver mail.Address) *gophermail.Message {
-	// in a future version I'll break this out into a file and use text.template
-	const template = "%s,\n\n" +
-		"You have been chosen by the Secret Santa Robotic Elf to give to:\n\n" +
-		"%s\n\n" +
-		"Please don't spoil the fun -- guard this secret with your life! All " +
-		"will be revealed at the Just-Missed-Christmas Party on December 27th at " +
-		"Bill and Suzie's house, so you've only got to keep it together for a " +
-		"few weeks. All of us at the North Pole are pulling for you, so go get " +
-		"the best gift you can find for under $20. And remember: If it can't be " +
-		"good, at least it can be funny!\n\n" +
-		"Love, luck, and light fluffy snow,\n" +
-		"  - Santa's Robotic Little Helpers\n\n" +
-		"P.S. You can see and verify the code for the Secret Santa Robotic Elf at " +
-		"https://github.com/dangermike/secret-santa\n"
+func formatMessage(c *cli.Context, body *template.Template, from mail.Address, giver mail.Address, receiver mail.Address) (*gophermail.Message, error) {
+	data := struct {
+		From string
+		To   string
+	}{
+		From: giver.Name,
+		To:   receiver.Name,
+	}
 
-	body := fmt.Sprintf(template, giver.Name, receiver.Name)
+	var tpl bytes.Buffer
+	if err := body.Execute(&tpl, data); err != nil {
+		return nil, err
+	}
 
 	msg := gophermail.Message{
 		From:    from,
 		To:      []mail.Address{giver},
-		Subject: "Shhhh! It's your Secret Santa assignment",
-		Body:    body,
+		Subject: c.String("subject"),
+		Body:    tpl.String(),
 	}
 
-	return &msg
+	return &msg, nil
 }
 
 func validateShuffle(froms []mail.Address, tos []mail.Address) bool {
