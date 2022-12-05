@@ -13,7 +13,7 @@ import (
 	"text/template"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/jpoehls/gophermail.v0"
 	"gopkg.in/urfave/cli.v1"
 )
