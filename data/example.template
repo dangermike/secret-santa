@@ -1,1 +1,3 @@
 Merry Christmas {{.From}}! You've been chosen as {{.To}}'s secret santa!
+
+They want {{index .Extras "wish"}}

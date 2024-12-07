@@ -4,7 +4,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
-const appVersion = "0.0.1"
+const appVersion = "0.1.0"
 
 var appFlags = []cli.Flag{
 	cli.StringFlag{
